@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sageechoes-v1';
+const CACHE_NAME = 'sageechoes-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
   '/backup.js',
   '/books-api.js',
   '/manifest.json',
-  '/icon.png'
+  '/icon_sageechoes.png'
 ];
 
 self.addEventListener('install', event => {
