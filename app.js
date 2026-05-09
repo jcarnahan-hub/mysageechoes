@@ -394,6 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(savedTheme);
   await openLocalDB();
   pruneOldLogs();
+  await initAuth();
   renderLibrary();
   console.log('✅ SageEchoes running!');
 });
