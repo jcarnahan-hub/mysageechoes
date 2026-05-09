@@ -1,4 +1,4 @@
-// ── AURELIA ECHOES: Main App (Phase 4 — Series Cleanup) ──
+// ── SAGEECHOES: Main App ──
 
 // ── TAB NAVIGATION ──
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -82,7 +82,6 @@ async function renderSeries() {
   const seriesMap = {};
 
   books.forEach(book => {
-    // Skip books with no series or clearly bad series names
     if (!book.series) return;
     const seriesName = book.series.trim();
     if (!seriesName) return;
@@ -98,7 +97,6 @@ async function renderSeries() {
       };
     }
 
-    // Set author — prefer non-empty, non-Unknown value
     if (book.author && book.author !== 'Unknown Author') {
       seriesMap[seriesName].author = book.author;
     }
@@ -108,7 +106,6 @@ async function renderSeries() {
     else if (book.status === 'upcoming') seriesMap[seriesName].upcoming.push(book);
   });
 
-  // Sort series alphabetically
   const names = Object.keys(seriesMap).sort((a, b) => a.localeCompare(b));
 
   if (!names.length) {
@@ -122,7 +119,6 @@ async function renderSeries() {
     const pct = total ? Math.round((s.owned.length / total) * 100) : 0;
     const authorDisplay = s.author || 'Unknown Author';
 
-    // Sort books by series number within each group
     const sortByNum = arr => arr.sort((a, b) => {
       const na = parseFloat(a.seriesNumber) || 0;
       const nb = parseFloat(b.seriesNumber) || 0;
@@ -239,7 +235,7 @@ document.getElementById('shareLogBtn')?.addEventListener('click', async () => {
     .map(l => `[${l.date}] ${l.message}`).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
-  a.download = `aurelia-echoes-log-${new Date().toISOString().split('T')[0]}.txt`;
+  a.download = `sageechoes-log-${new Date().toISOString().split('T')[0]}.txt`;
   a.click();
   showToast('Log exported successfully!', 'success');
 });
@@ -388,7 +384,7 @@ themeToggle?.addEventListener('click', () => {
 
 // ── SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/aureliaechoes/sw.js')
+  navigator.serviceWorker.register('/sw.js')
     .then(() => console.log('✅ Service Worker registered'));
 }
 
@@ -399,5 +395,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   await openLocalDB();
   pruneOldLogs();
   renderLibrary();
-  console.log('🎧 Aurelia Echoes Phase 4 running!');
+  console.log('✅ SageEchoes running!');
 });
