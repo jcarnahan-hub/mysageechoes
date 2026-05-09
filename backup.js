@@ -1,5 +1,4 @@
-
-// ── AURELIA ECHOES: Backup & Restore System ──
+// ── SAGEECHOES: Backup & Restore System ──
 
 const LAST_BACKUP_KEY = 'ae-last-backup';
 
@@ -48,7 +47,7 @@ function updateLastBackupLabel() {
   }
 }
 
-// ── BACKUP TOAST (self-contained so backup.js needs no other file) ──
+// ── BACKUP TOAST ──
 function backupToast(message, type = 'info') {
   const existing = document.getElementById('ae-toast');
   if (existing) existing.remove();
@@ -84,19 +83,17 @@ function backupToast(message, type = 'info') {
   }, 3500);
 }
 
-// ── GET ALL BOOKS (safe wrapper) ──
+// ── SAFE WRAPPERS ──
 async function backupGetAllBooks() {
   if (typeof getAllBooks === 'function') return await getAllBooks();
   return [];
 }
 
-// ── GET ALL LOGS (safe wrapper) ──
 async function backupGetAllLogs() {
   if (typeof getAllLogs === 'function') return await getAllLogs();
   return [];
 }
 
-// ── SAVE LOG (safe wrapper) ──
 function backupSaveLog(message) {
   if (typeof saveLog === 'function') saveLog(message);
 }
@@ -112,7 +109,7 @@ async function exportBackup() {
 
     const backup = {
       version: '1.0',
-      appName: 'AureliaEchoes',
+      appName: 'SageEchoes',
       exportDate: new Date().toISOString(),
       totalBooks: books.length,
       data: { books, logs, settings: { theme } }
@@ -125,7 +122,7 @@ async function exportBackup() {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `AureliaEchoes_Backup_${today}.json`;
+    a.download = `SageEchoes_Backup_${today}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -137,6 +134,13 @@ async function exportBackup() {
 
     backupSaveLog(`Backup exported: ${books.length} books saved to file`);
     backupToast(`Backup complete! ${books.length} books exported.`, 'success');
+
+    // ── AUTO CLOUD SAVE after local backup ──
+    if (typeof cloudSave === 'function') {
+      cloudSave(books).then(success => {
+        if (success) backupToast('Library also saved to cloud.', 'success');
+      });
+    }
 
   } catch (err) {
     backupToast('Backup failed. Please try again.', 'error');
@@ -160,8 +164,9 @@ async function restoreBackup() {
     const text = await fileInput.files[0].text();
     const backup = JSON.parse(text);
 
-    if (!backup.appName || backup.appName !== 'AureliaEchoes') {
-      backupToast('This does not appear to be an Aurelia Echoes backup file.', 'error');
+    // Accept both old AureliaEchoes and new SageEchoes backup files
+    if (!backup.appName || !['AureliaEchoes', 'SageEchoes'].includes(backup.appName)) {
+      backupToast('This does not appear to be a valid SageEchoes backup file.', 'error');
       return;
     }
 
