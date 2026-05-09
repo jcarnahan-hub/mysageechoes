@@ -1,6 +1,6 @@
-// ── mysageechoes: Local Database (IndexedDB) ──
+// ── SAGEECHOES: Local Database (IndexedDB) ──
 
-const DB_NAME = 'mysageechoesDB';
+const DB_NAME = 'AureliaEchoesDB'; // ⚠️ Do not rename — preserves existing user data
 const DB_VERSION = 2;
 let localDB;
 
