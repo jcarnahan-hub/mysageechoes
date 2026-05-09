@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aurelia Echoes</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <meta name="theme-color" content="#5C4033"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <link rel="icon" href="icon.png" type="image/png"/>
+</head>
+<body>
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="header-left">
+        <img src="icon.png" alt="Aurelia Echoes" class="app-logo"/>
+        <h1 class="app-title">Aurelia Echoes</h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="backup-btn" id="openBackupBtn" title="Backup & Restore">☁️</button>
+        <div class="theme-toggle" id="themeToggle">
+          <span class="toggle-icon">☀️</span>
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          <span class="toggle-icon">🌙</span>
+          <span class="toggle-label" id="toggleLabel">Light</span>
+        </div>
+      </div>
+    </div>
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="library">📚 Library</button>
+      <button class="tab-btn" data-tab="series">📖 Series</button>
+      <button class="tab-btn" data-tab="wishlist">⭐ Wishlist</button>
+      <button class="tab-btn" data-tab="import">⬆️ Import</button>
+      <button class="tab-btn" data-tab="logs">🗒️ Logs</button>
+    </nav>
+  </header>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="app-main">
+
+    <!-- LIBRARY TAB -->
+    <section id="tab-library" class="tab-content active">
+      <div class="section-header">
+        <h2>My Library</h2>
+        <input type="text" id="searchBar" placeholder="🔍 Search books or authors..." class="search-bar"/>
+      </div>
+      <div class="library-toolbar">
+        <button class="btn-secondary" id="fetchCoversBtn" style="font-size:0.82rem;padding:7px 14px;">
+          🖼️ Fetch Missing Covers (50 at a time)
+        </button>
+        <span id="bookCount" class="book-count-label"></span>
+      </div>
+      <div id="libraryGrid" class="book-grid"></div>
+    </section>
+
+    <!-- SERIES TAB -->
+    <section id="tab-series" class="tab-content">
+      <div class="section-header">
+        <h2>My Series</h2>
+        <button class="btn-primary" id="addSeriesBtn">+ Track New Series</button>
+      </div>
+      <div id="seriesGrid" class="series-grid"></div>
+    </section>
+
+    <!-- WISHLIST TAB -->
+    <section id="tab-wishlist" class="tab-content">
+      <div class="section-header">
+        <h2>My Wishlist</h2>
+      </div>
+      <div id="wishlistGrid" class="book-grid wishlist-grid"></div>
+    </section>
+
+    <!-- IMPORT TAB -->
+    <section id="tab-import" class="tab-content">
+      <div class="section-header">
+        <h2>Import Your Library</h2>
+      </div>
+      <div class="import-options">
+        <div class="import-card">
+          <h3>📥 Import from CSV or JSON</h3>
+          <p>Export your Audible library and upload the file here.</p>
+          <input type="file" id="fileImport" accept=".csv,.json" class="file-input"/>
+          <label for="fileImport" class="btn-primary">Choose File</label>
+          <button class="btn-secondary" id="runImportBtn">Run Import</button>
+        </div>
+        <div class="import-card">
+          <h3>🔗 Audible Auto-Sync</h3>
+          <p>Coming in Phase 4 — browser extension will sync automatically.</p>
+          <button class="btn-disabled" disabled>Coming Soon</button>
+        </div>
+      </div>
+      <div id="importSummary" class="import-summary hidden">
+        <h3>✅ Import Complete</h3>
+        <p id="summaryText"></p>
+        <button class="btn-secondary" id="closeSummaryBtn">Close</button>
+      </div>
+    </section>
+
+    <!-- LOGS TAB -->
+    <section id="tab-logs" class="tab-content">
+      <div class="section-header">
+        <h2>Import Logs</h2>
+        <button class="btn-secondary" id="shareLogBtn">📤 Share Log</button>
+      </div>
+      <div id="logViewer" class="log-viewer"></div>
+    </section>
+
+  </main>
+
+  <!-- FLOATING ACTION BUTTON -->
+  <button class="fab" id="fabBtn">+</button>
+
+  <!-- BACKUP MODAL -->
+  <div id="backupOverlay" class="dialog-overlay hidden" style="display:none;">
+    <div class="dialog-box" style="max-width:480px;">
+      <h3 class="dialog-title">☁️ Backup & Restore</h3>
+      <p class="dialog-subtitle">Keep your library safe. Export a backup file regularly and save it to Google Drive or your device.</p>
+      <div class="backup-section">
+        <h4 class="backup-section-title">⬇️ Export Backup</h4>
+        <p class="backup-section-desc">Downloads a complete backup of your entire library, series, wishlist and logs.</p>
+        <button class="btn-primary" id="exportBackupBtn" style="width:100%;">⬇️ Download Backup File</button>
+        <p class="backup-last-saved" id="lastBackupLabel">Last backup: Never</p>
+        <p class="backup-tip">💡 Tip: Save your backup to Google Drive weekly so it's always accessible from any device.</p>
+      </div>
+      <div class="backup-divider"></div>
+      <div class="backup-section">
+        <h4 class="backup-section-title">⬆️ Restore from Backup</h4>
+        <p class="backup-section-desc">Smart merge — never wipes your existing books. Only adds what's missing.</p>
+        <input type="file" id="restoreFileInput" accept=".json" class="file-input"/>
+        <label for="restoreFileInput" class="btn-secondary" style="width:100%;text-align:center;display:block;cursor:pointer;">
+          📂 Choose Backup File
+        </label>
+        <button class="btn-primary" id="runRestoreBtn" style="width:100%;">⬆️ Restore Now</button>
+        <div id="restoreResult" class="restore-result hidden"></div>
+      </div>
+      <div class="dialog-actions" style="margin-top:8px;">
+        <button class="btn-secondary" id="closeBackupBtn" style="width:100%;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD SERIES DIALOG -->
+  <div id="seriesDialogOverlay" class="dialog-overlay hidden" style="display:none;">
+    <div class="dialog-box">
+      <h3 class="dialog-title">📖 Track New Series</h3>
+      <p class="dialog-subtitle">Enter the series and author to search Google Books for all books including missing and upcoming ones.</p>
+      <label class="dialog-label">Series Name</label>
+      <input type="text" id="seriesNameInput" class="dialog-input" placeholder="e.g. Outlander"/>
+      <label class="dialog-label">Author Name</label>
+      <input type="text" id="seriesAuthorInput" class="dialog-input" placeholder="e.g. Diana Gabaldon"/>
+      <div class="dialog-actions">
+        <button class="btn-secondary" id="cancelSeriesBtn">Cancel</button>
+        <button class="btn-primary" id="confirmSeriesBtn">🔍 Find Series</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="firebase.js"></script>
+  <script src="db.js"></script>
+  <script src="books-api.js"></script>
+  <script src="import.js"></script>
+  <script src="app.js"></script>
+  <script src="backup.js"></script>
+
+</body>
+</html>
