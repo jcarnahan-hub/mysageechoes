@@ -10,7 +10,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icon-sageechoes.png",
+      "src": "icon_sageechoes.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
