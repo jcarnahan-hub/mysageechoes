@@ -9,6 +9,8 @@ const ASSETS = [
   '/import.js',
   '/backup.js',
   '/books-api.js',
+  '/auth.js',
+  '/cloud.js',
   '/manifest.json',
   '/icon_sageechoes.png'
 ];
