@@ -1,5 +1,16 @@
-{
-  "projects": {
-    "default": "mysageechoes"
-  }
-}
+// ── mysageechoes: Firebase Configuration ──
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC3JQRjMKaG5AIHO_oOVa2MfyytrjLjITo",
+  authDomain: "mysageechoes-audiobooks.firebaseapp.com",
+  projectId: "mysageechoes-audiobooks",
+  storageBucket: "mysageechoes-audiobooks.firebasestorage.app",
+  messagingSenderId: "819551747823",
+  appId: "1:819551747823:web:8f2200434ba0b97e08e51a"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+console.log("✅ Firebase connected to mysageechoes");
