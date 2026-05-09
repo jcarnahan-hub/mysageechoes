@@ -35,7 +35,7 @@ function showSignInScreen() {
       font-family: var(--font-body);
     `;
     screen.innerHTML = `
-      <img src="icon.png" style="width:80px;border-radius:18px;">
+      <img src="icon_sageechoes.png" style="width:80px;border-radius:18px;">
       <h1 style="font-family:var(--font-heading);color:var(--accent-gold);
         font-size:1.8rem;font-weight:600;margin:0;">SageEchoes</h1>
       <p style="color:var(--text-secondary);margin:0;text-align:center;max-width:280px;">
