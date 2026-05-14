@@ -74,11 +74,30 @@ async function renderWishlist() {
   attachWishlistActions();
 }
 
+// ── COMPANION BOOK KEYWORDS ──
+// Titles containing these words are flagged as non-main-sequence entries
+const COMPANION_KEYWORDS = [
+  'companion', 'guide', 'anthology', 'novella collection', 'short stories',
+  'world of', 'the making of', 'behind the', 'illustrated', 'concordance',
+  'encyclopedia', 'compendium', 'prequel collection', 'stories of',
+  'tales of', 'legends of'
+];
+
+function isCompanionBook(book) {
+  const t = (book.title || '').toLowerCase();
+  return COMPANION_KEYWORDS.some(kw => t.includes(kw));
+}
+
 // ── RENDER SERIES ──
 async function renderSeries() {
   const grid = document.getElementById('seriesGrid');
   grid.innerHTML = '<p style="color:var(--text-muted)">Loading series...</p>';
-  const books = await getAllBooks();
+  const hideCompanions = document.getElementById('hideCompanionsToggle')?.checked || false;
+  let books = await getAllBooks();
+
+  // Apply companion filter if toggled on
+  if (hideCompanions) books = books.filter(b => !isCompanionBook(b));
+
   const seriesMap = {};
 
   books.forEach(book => {
@@ -88,8 +107,14 @@ async function renderSeries() {
     if (seriesName.toLowerCase().startsWith('book ')) return;
     if (/^book\s*\d+$/i.test(seriesName)) return;
 
-    if (!seriesMap[seriesName]) {
-      seriesMap[seriesName] = {
+    // Use normalized key for grouping so "The X" and "X" share one card.
+    // Fall back to normalizing on the fly if seriesKey wasn't stored yet.
+    const key = book.seriesKey ||
+      seriesName.replace(/^the\s+/i,'').replace(/^an?\s+/i,'').toLowerCase().trim();
+
+    if (!seriesMap[key]) {
+      seriesMap[key] = {
+        displayName: seriesName,  // use first-seen casing as display name
         author: '',
         owned: [],
         missing: [],
@@ -98,23 +123,25 @@ async function renderSeries() {
     }
 
     if (book.author && book.author !== 'Unknown Author') {
-      seriesMap[seriesName].author = book.author;
+      seriesMap[key].author = book.author;
     }
 
-    if (book.status === 'owned') seriesMap[seriesName].owned.push(book);
-    else if (book.status === 'missing') seriesMap[seriesName].missing.push(book);
-    else if (book.status === 'upcoming') seriesMap[seriesName].upcoming.push(book);
+    if (book.status === 'owned') seriesMap[key].owned.push(book);
+    else if (book.status === 'missing') seriesMap[key].missing.push(book);
+    else if (book.status === 'upcoming') seriesMap[key].upcoming.push(book);
   });
 
-  const names = Object.keys(seriesMap).sort((a, b) => a.localeCompare(b));
+  const names = Object.keys(seriesMap).sort((a, b) =>
+    seriesMap[a].displayName.localeCompare(seriesMap[b].displayName));
 
   if (!names.length) {
     grid.innerHTML = '<p style="color:var(--text-muted)">No series found. Import books with series data or use "+ Track New Series".</p>';
     return;
   }
 
-  grid.innerHTML = names.map(name => {
-    const s = seriesMap[name];
+  grid.innerHTML = names.map(key => {
+    const s = seriesMap[key];
+    const name = s.displayName;
     const total = s.owned.length + s.missing.length + s.upcoming.length;
     const pct = total ? Math.round((s.owned.length / total) * 100) : 0;
     const authorDisplay = s.author || 'Unknown Author';
@@ -196,7 +223,10 @@ async function findMissingBooks(seriesName, author) {
       book.title.toLowerCase().includes(t)
     );
     if (!isOwned) {
-      const isUpcoming = book.publishedDate &&
+      // No publishedDate = not yet released = upcoming
+      // Future publishedDate = upcoming
+      // Past publishedDate = missing from library
+      const isUpcoming = !book.publishedDate ||
         new Date(book.publishedDate) > new Date();
       book.status = isUpcoming ? 'upcoming' : 'missing';
       book.series = seriesName;
@@ -382,6 +412,11 @@ themeToggle?.addEventListener('click', () => {
   applyTheme(current === 'dark' ? 'light' : 'dark');
 });
 
+// ── COMPANION FILTER TOGGLE ──
+document.getElementById('hideCompanionsToggle')?.addEventListener('change', () => {
+  renderSeries();
+});
+
 // ── SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js')
@@ -392,6 +427,13 @@ if ('serviceWorker' in navigator) {
 document.addEventListener('DOMContentLoaded', async () => {
   const savedTheme = localStorage.getItem('ae-theme') || 'light';
   applyTheme(savedTheme);
+
+  // Hide IndexedDB warning if already dismissed
+  if (localStorage.getItem('idb-warn-dismissed') === '1') {
+    const banner = document.getElementById('idb-warning-banner');
+    if (banner) banner.style.display = 'none';
+  }
+
   await openLocalDB();
   pruneOldLogs();
   await initAuth();
