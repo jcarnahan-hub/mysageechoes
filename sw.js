@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sageechoes-v2';
+const CACHE_NAME = 'sageechoes-v3';
 const ASSETS = [
   '/',
   '/index.html',
