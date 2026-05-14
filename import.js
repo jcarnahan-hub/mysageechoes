@@ -191,6 +191,7 @@ function validateBooks(books) {
       title: title.trim(),
       author: author.trim() || 'Unknown Author',
       series: series.trim(),
+      seriesKey: normalizeSeriesKey(series),   // dedup key — strips "The", lowercased
       seriesNumber: seriesNumber.toString().trim(),
       status,
       coverUrl: coverUrl.trim(),
@@ -202,6 +203,21 @@ function validateBooks(books) {
   });
 
   return { valid, errors };
+}
+
+// ── NORMALIZE SERIES NAME FOR DEDUPLICATION ──
+// Strips leading articles and whitespace, lowercases for comparison.
+// The canonical stored name keeps original casing but uses the normalized
+// form as the key so "The Stormlight Archive" and "Stormlight Archive" merge.
+function normalizeSeriesKey(name) {
+  if (!name) return '';
+  return name
+    .trim()
+    .replace(/^the\s+/i, '')   // strip leading "The "
+    .replace(/^a\s+/i, '')     // strip leading "A "
+    .replace(/^an\s+/i, '')    // strip leading "An "
+    .toLowerCase()
+    .replace(/\s+/g, ' ');     // collapse internal whitespace
 }
 
 // ── CLEAN SERIES NAME ──
