@@ -16,6 +16,28 @@
 </head>
 <body>
 
+  <!-- INDEXEDDB DATA LOSS WARNING -->
+  <div id="idb-warning-banner" style="
+    background:#7B6B2D;color:#FFF8DC;
+    font-size:0.82rem;line-height:1.5;
+    padding:9px 16px;
+    display:flex;align-items:center;gap:10px;
+    flex-wrap:wrap;
+    position:sticky;top:0;z-index:200;
+  ">
+    <span>⚠️</span>
+    <span style="flex:1;">
+      <strong>Protect your library:</strong>
+      Clearing Chrome's browsing history ("Cookies and other site data") will permanently erase your local book data.
+      <strong>Export a backup regularly</strong> using the ☁️ button above.
+    </span>
+    <button onclick="document.getElementById('idb-warning-banner').style.display='none';localStorage.setItem('idb-warn-dismissed','1');"
+      style="background:transparent;border:1px solid #FFF8DC;color:#FFF8DC;
+             border-radius:6px;padding:3px 10px;cursor:pointer;font-size:0.8rem;white-space:nowrap;">
+      Got it
+    </button>
+  </div>
+
   <!-- TOP NAVIGATION BAR -->
   <header class="app-header">
     <div class="header-top">
@@ -65,6 +87,12 @@
       <div class="section-header">
         <h2>My Series</h2>
         <button class="btn-primary" id="addSeriesBtn">+ Track New Series</button>
+      </div>
+      <div class="series-filter-bar" style="display:flex;align-items:center;gap:10px;padding:0 0 12px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.83rem;color:var(--text-muted);cursor:pointer;">
+          <input type="checkbox" id="hideCompanionsToggle" style="accent-color:var(--accent-sage);width:15px;height:15px;cursor:pointer;"/>
+          Hide companions, guides &amp; anthologies
+        </label>
       </div>
       <div id="seriesGrid" class="series-grid"></div>
     </section>
