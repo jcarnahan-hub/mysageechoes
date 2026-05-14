@@ -1,442 +1,185 @@
-// ── SAGEECHOES: Main App ──
+// ── AURELIA ECHOES: Google Books API (Phase 4) ──
 
-// ── TAB NAVIGATION ──
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-    if (btn.dataset.tab === 'library') renderLibrary();
-    if (btn.dataset.tab === 'wishlist') renderWishlist();
-    if (btn.dataset.tab === 'series') renderSeries();
-    if (btn.dataset.tab === 'logs') renderLogs();
-  });
-});
+const GOOGLE_BOOKS_API_KEY = 'AIzaSyACDkAs-5myPgb4Emn6YLqc_MAnOSzqynk';
+const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1';
 
-// ── TOAST NOTIFICATIONS ──
-function showToast(message, type = 'info') {
-  const existing = document.getElementById('ae-toast');
-  if (existing) existing.remove();
-
-  const colors = {
-    success: { bg: '#2D6A4F', text: '#D8F3DC' },
-    error:   { bg: '#7B2D2D', text: '#FFE0E0' },
-    warning: { bg: '#7B6B2D', text: '#FFF8DC' },
-    info:    { bg: 'var(--bg-card)', text: 'var(--text-primary)' }
-  };
-  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-  const c = colors[type] || colors.info;
-
-  const toast = document.createElement('div');
-  toast.id = 'ae-toast';
-  toast.style.cssText = `
-    position: fixed; bottom: 90px; right: 24px;
-    background: ${c.bg}; color: ${c.text};
-    padding: 12px 18px; border-radius: 12px;
-    font-size: 0.88rem; font-family: var(--font-body);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    z-index: 999; max-width: 320px;
-    border: 1px solid var(--border);
-    display: flex; align-items: center; gap: 8px;
-    animation: slideIn 0.3s ease;
-  `;
-  toast.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.4s';
-    setTimeout(() => toast.remove(), 400);
-  }, 3500);
-}
-
-// ── RENDER LIBRARY ──
-async function renderLibrary() {
-  const grid = document.getElementById('libraryGrid');
-  const countLabel = document.getElementById('bookCount');
-  grid.innerHTML = '<p style="color:var(--text-muted)">Loading your library...</p>';
-  const books = await getBooksByStatus('owned');
-  if (countLabel) countLabel.textContent = `${books.length} books`;
-  grid.innerHTML = books.length
-    ? books.map(b => bookCardHTML(b, false)).join('')
-    : '<p style="color:var(--text-muted)">No books yet. Use the Import tab to add your library!</p>';
-}
-
-// ── RENDER WISHLIST ──
-async function renderWishlist() {
-  const grid = document.getElementById('wishlistGrid');
-  grid.innerHTML = '<p style="color:var(--text-muted)">Loading wishlist...</p>';
-  const books = await getBooksByStatus('wishlist');
-  grid.innerHTML = books.length
-    ? books.map(b => bookCardHTML(b, true)).join('')
-    : '<p style="color:var(--text-muted)">Your wishlist is empty.</p>';
-  attachWishlistActions();
-}
-
-// ── COMPANION BOOK KEYWORDS ──
-// Titles containing these words are flagged as non-main-sequence entries
-const COMPANION_KEYWORDS = [
-  'companion', 'guide', 'anthology', 'novella collection', 'short stories',
-  'world of', 'the making of', 'behind the', 'illustrated', 'concordance',
-  'encyclopedia', 'compendium', 'prequel collection', 'stories of',
-  'tales of', 'legends of'
-];
-
-function isCompanionBook(book) {
-  const t = (book.title || '').toLowerCase();
-  return COMPANION_KEYWORDS.some(kw => t.includes(kw));
-}
-
-// ── RENDER SERIES ──
-async function renderSeries() {
-  const grid = document.getElementById('seriesGrid');
-  grid.innerHTML = '<p style="color:var(--text-muted)">Loading series...</p>';
-  const hideCompanions = document.getElementById('hideCompanionsToggle')?.checked || false;
-  let books = await getAllBooks();
-
-  // Apply companion filter if toggled on
-  if (hideCompanions) books = books.filter(b => !isCompanionBook(b));
-
-  const seriesMap = {};
-
-  books.forEach(book => {
-    if (!book.series) return;
-    const seriesName = book.series.trim();
-    if (!seriesName) return;
-    if (seriesName.toLowerCase().startsWith('book ')) return;
-    if (/^book\s*\d+$/i.test(seriesName)) return;
-
-    // Use normalized key for grouping so "The X" and "X" share one card.
-    // Fall back to normalizing on the fly if seriesKey wasn't stored yet.
-    const key = book.seriesKey ||
-      seriesName.replace(/^the\s+/i,'').replace(/^an?\s+/i,'').toLowerCase().trim();
-
-    if (!seriesMap[key]) {
-      seriesMap[key] = {
-        displayName: seriesName,  // use first-seen casing as display name
-        author: '',
-        owned: [],
-        missing: [],
-        upcoming: []
-      };
-    }
-
-    if (book.author && book.author !== 'Unknown Author') {
-      seriesMap[key].author = book.author;
-    }
-
-    if (book.status === 'owned') seriesMap[key].owned.push(book);
-    else if (book.status === 'missing') seriesMap[key].missing.push(book);
-    else if (book.status === 'upcoming') seriesMap[key].upcoming.push(book);
-  });
-
-  const names = Object.keys(seriesMap).sort((a, b) =>
-    seriesMap[a].displayName.localeCompare(seriesMap[b].displayName));
-
-  if (!names.length) {
-    grid.innerHTML = '<p style="color:var(--text-muted)">No series found. Import books with series data or use "+ Track New Series".</p>';
-    return;
-  }
-
-  grid.innerHTML = names.map(key => {
-    const s = seriesMap[key];
-    const name = s.displayName;
-    const total = s.owned.length + s.missing.length + s.upcoming.length;
-    const pct = total ? Math.round((s.owned.length / total) * 100) : 0;
-    const authorDisplay = s.author || 'Unknown Author';
-
-    const sortByNum = arr => arr.sort((a, b) => {
-      const na = parseFloat(a.seriesNumber) || 0;
-      const nb = parseFloat(b.seriesNumber) || 0;
-      return na - nb;
-    });
-
-    return `
-      <div class="series-card" data-series="${name}">
-        <div class="series-title">${name}</div>
-        <div class="series-author">by ${authorDisplay}</div>
-        <div class="series-progress-bar">
-          <div class="series-progress-fill" style="width:${pct}%"></div>
-        </div>
-        <div class="series-count">
-          ✅ ${s.owned.length} owned
-          ${s.missing.length ? `· ❌ ${s.missing.length} missing` : ''}
-          ${s.upcoming.length ? `· 🔜 ${s.upcoming.length} upcoming` : ''}
-          · ${pct}% complete
-        </div>
-        <div class="series-books">
-          ${sortByNum(s.owned).map(b => miniBookCard(b, 'owned')).join('')}
-          ${sortByNum(s.missing).map(b => miniBookCard(b, 'missing')).join('')}
-          ${sortByNum(s.upcoming).map(b => miniBookCard(b, 'upcoming')).join('')}
-        </div>
-        <button class="btn-secondary series-refresh-btn"
-          data-series="${name}" data-author="${authorDisplay}"
-          style="margin-top:14px;font-size:0.8rem;padding:6px 14px;">
-          🔍 Find Missing Books
-        </button>
-      </div>`;
-  }).join('');
-
-  document.querySelectorAll('.series-refresh-btn').forEach(btn => {
-    btn.addEventListener('click', () =>
-      findMissingBooks(btn.dataset.series, btn.dataset.author));
-  });
-}
-
-// ── MINI BOOK CARD ──
-function miniBookCard(book, status) {
-  const cover = book.coverUrl
-    ? `<img src="${book.coverUrl}" alt="${book.title}"
-        style="width:100%;height:100%;object-fit:cover;border-radius:6px;"
-        onerror="this.style.display='none'">`
-    : `<div style="width:100%;height:100%;display:flex;align-items:center;
-        justify-content:center;font-size:1.2rem;background:var(--bg-secondary);
-        border-radius:6px;">🎧</div>`;
-
-  const overlayColor = status === 'missing' ? 'var(--accent-warm)' : 'var(--accent-gold)';
-  const overlayText = status === 'missing' ? 'MISSING' : status === 'upcoming' ? 'UPCOMING' : '';
-  const overlay = overlayText
-    ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,0.55);
-        border-radius:6px;display:flex;align-items:center;justify-content:center;
-        font-size:0.6rem;color:${overlayColor};font-weight:700;">${overlayText}</div>`
-    : '';
-
-  return `<div style="position:relative;width:60px;height:90px;flex-shrink:0;"
-    title="${book.title}">${cover}${overlay}</div>`;
-}
-
-// ── FIND MISSING BOOKS ──
-async function findMissingBooks(seriesName, author) {
-  const btn = document.querySelector(`.series-refresh-btn[data-series="${seriesName}"]`);
-  if (btn) { btn.textContent = '🔍 Searching...'; btn.disabled = true; }
-  showToast(`Searching for missing books in "${seriesName}"...`, 'info');
-
-  const results = await searchSeries(seriesName);
-  const ownedBooks = await getBooksByStatus('owned');
-  const ownedTitles = ownedBooks.map(b => b.title.toLowerCase());
-
-  let added = 0;
-  for (const book of results) {
-    const isOwned = ownedTitles.some(t =>
-      t.includes(book.title.toLowerCase()) ||
-      book.title.toLowerCase().includes(t)
-    );
-    if (!isOwned) {
-      // No publishedDate = not yet released = upcoming
-      // Future publishedDate = upcoming
-      // Past publishedDate = missing from library
-      const isUpcoming = !book.publishedDate ||
-        new Date(book.publishedDate) > new Date();
-      book.status = isUpcoming ? 'upcoming' : 'missing';
-      book.series = seriesName;
-      book.author = author || book.author;
-      const result = await upsertBook(book);
-      if (result === 'added') added++;
-    }
-  }
-
-  saveLog(`Series refresh: "${seriesName}" — found ${added} new missing/upcoming books`);
-  if (btn) { btn.textContent = '🔍 Find Missing Books'; btn.disabled = false; }
-  renderSeries();
-
-  if (added === 0) {
-    showToast(`"${seriesName}" looks complete — no new books found!`, 'success');
-  } else {
-    showToast(`Found ${added} missing/upcoming books for "${seriesName}"!`, 'success');
+// ── SEARCH FOR BOOKS ──
+async function searchGoogleBooks(query) {
+  try {
+    const url = `${GOOGLE_BOOKS_BASE}/volumes?q=${encodeURIComponent(query)}&maxResults=40&key=${GOOGLE_BOOKS_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.items) return [];
+    return data.items.map(item => parseGoogleBook(item));
+  } catch (err) {
+    console.error('Google Books search error:', err);
+    return [];
   }
 }
 
-// ── RENDER LOGS ──
-async function renderLogs() {
-  const viewer = document.getElementById('logViewer');
-  const logs = await getAllLogs();
-  viewer.textContent = logs.length
-    ? logs.sort((a, b) => b.timestamp - a.timestamp)
-        .map(l => `[${l.date}] ${l.message}`).join('\n')
-    : 'No log entries yet. Import a file to see activity here.';
-}
-
-// ── SHARE LOG ──
-document.getElementById('shareLogBtn')?.addEventListener('click', async () => {
-  const logs = await getAllLogs();
-  const content = logs
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .map(l => `[${l.date}] ${l.message}`).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
-  a.download = `sageechoes-log-${new Date().toISOString().split('T')[0]}.txt`;
-  a.click();
-  showToast('Log exported successfully!', 'success');
-});
-
-// ── BOOK CARD HTML ──
-function bookCardHTML(book, isWishlist) {
-  const cover = book.coverUrl
-    ? `<img class="book-cover" src="${book.coverUrl}" alt="${book.title}"
-        loading="lazy" onerror="this.parentElement.innerHTML='<div class=book-cover-placeholder>🎧</div>'">`
-    : `<div class="book-cover-placeholder">🎧</div>`;
-
-  const wishlistActions = isWishlist ? `
-    <div class="wishlist-actions">
-      <button class="btn-own" data-id="${book.id}">✅ Purchased</button>
-      <button class="btn-remove" data-id="${book.id}">🗑️ Remove</button>
-    </div>` : '';
-
-  return `
-    <div class="book-card" data-id="${book.id}">
-      ${cover}
-      <div class="book-info">
-        <div class="book-title">${book.title}</div>
-        <div class="book-author">${book.author || ''}</div>
-        ${book.series
-          ? `<div class="book-series">📖 ${book.series}${book.seriesNumber ? ` #${book.seriesNumber}` : ''}</div>`
-          : ''}
-      </div>
-      ${wishlistActions}
-    </div>`;
-}
-
-// ── WISHLIST ACTIONS ──
-function attachWishlistActions() {
-  document.querySelectorAll('.btn-own').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await markBookAsOwned(btn.dataset.id);
-      saveLog(`Moved to library: book ID ${btn.dataset.id}`);
-      showToast('Book moved to your library!', 'success');
-      renderWishlist();
-    });
-  });
-
-  document.querySelectorAll('.btn-remove').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (confirm('Remove this book from your wishlist?')) {
-        await deleteBook(btn.dataset.id);
-        saveLog(`Removed from wishlist: book ID ${btn.dataset.id}`);
-        showToast('Book removed from wishlist.', 'info');
-        renderWishlist();
-      }
-    });
-  });
-}
-
-// ── ADD SERIES DIALOG ──
-const seriesOverlay = document.getElementById('seriesDialogOverlay');
-const seriesNameInput = document.getElementById('seriesNameInput');
-const seriesAuthorInput = document.getElementById('seriesAuthorInput');
-
-document.getElementById('addSeriesBtn')?.addEventListener('click', () => {
-  if (!seriesOverlay) { console.error('❌ Series dialog not found'); return; }
-  seriesNameInput.value = '';
-  seriesAuthorInput.value = '';
-  seriesOverlay.style.display = 'flex';
-  seriesOverlay.classList.remove('hidden');
-  setTimeout(() => seriesNameInput.focus(), 150);
-});
-
-document.getElementById('cancelSeriesBtn')?.addEventListener('click', () => {
-  seriesOverlay.style.display = 'none';
-  seriesOverlay.classList.add('hidden');
-});
-
-document.getElementById('confirmSeriesBtn')?.addEventListener('click', () => {
-  const name = seriesNameInput.value.trim();
-  const author = seriesAuthorInput.value.trim();
-  if (!name) {
-    seriesNameInput.style.borderColor = 'var(--accent-warm)';
-    seriesNameInput.focus();
-    return;
-  }
-  seriesOverlay.style.display = 'none';
-  seriesOverlay.classList.add('hidden');
-  findMissingBooks(name, author);
-});
-
-seriesOverlay?.addEventListener('click', (e) => {
-  if (e.target === seriesOverlay) {
-    seriesOverlay.style.display = 'none';
-    seriesOverlay.classList.add('hidden');
-  }
-});
-
-seriesAuthorInput?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('confirmSeriesBtn').click();
-});
-
-// ── SEARCH BAR ──
-document.getElementById('searchBar')?.addEventListener('input', async (e) => {
-  const q = e.target.value.toLowerCase().trim();
-  const grid = document.getElementById('libraryGrid');
-  const countLabel = document.getElementById('bookCount');
-
-  if (!q) {
-    renderLibrary();
-    return;
-  }
-
-  const books = await getAllBooks();
-  const filtered = books.filter(b =>
-    b.status === 'owned' && (
-      (b.title || '').toLowerCase().includes(q) ||
-      (b.author || '').toLowerCase().includes(q) ||
-      (b.series || '').toLowerCase().includes(q) ||
-      (b.narrator || '').toLowerCase().includes(q)
-    )
+// ── SEARCH FOR A SERIES ──
+async function searchSeries(seriesName) {
+  const results = await searchGoogleBooks(`intitle:"${seriesName}"`);
+  return results.filter(book =>
+    book.title.toLowerCase().includes(seriesName.toLowerCase()) ||
+    (book.series && book.series.toLowerCase().includes(seriesName.toLowerCase()))
   );
-
-  if (countLabel) countLabel.textContent = `${filtered.length} results`;
-  grid.innerHTML = filtered.length
-    ? filtered.map(b => bookCardHTML(b, false)).join('')
-    : '<p style="color:var(--text-muted)">No results found.</p>';
-});
-
-// ── FETCH MISSING COVERS BUTTON ──
-document.getElementById('fetchCoversBtn')?.addEventListener('click', () => {
-  batchFetchCovers(50);
-});
-
-// ── THEME TOGGLE ──
-const themeToggle = document.getElementById('themeToggle');
-const toggleLabel = document.getElementById('toggleLabel');
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('ae-theme', theme);
-  if (toggleLabel) toggleLabel.textContent = theme === 'dark' ? 'Dark' : 'Light';
 }
 
-themeToggle?.addEventListener('click', () => {
-  const current = document.documentElement.getAttribute('data-theme');
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-});
-
-// ── COMPANION FILTER TOGGLE ──
-document.getElementById('hideCompanionsToggle')?.addEventListener('change', () => {
-  renderSeries();
-});
-
-// ── SERVICE WORKER ──
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then(() => console.log('✅ Service Worker registered'));
+// ── SEARCH BY AUTHOR ──
+async function searchByAuthor(authorName) {
+  return await searchGoogleBooks(`inauthor:"${authorName}"`);
 }
 
-// ── INITIALIZE ──
-document.addEventListener('DOMContentLoaded', async () => {
-  const savedTheme = localStorage.getItem('ae-theme') || 'light';
-  applyTheme(savedTheme);
+// ── PARSE A GOOGLE BOOKS ITEM ──
+function parseGoogleBook(item) {
+  const info = item.volumeInfo || {};
+  const cover = getBestCover(info.imageLinks);
 
-  // Hide IndexedDB warning if already dismissed
-  if (localStorage.getItem('idb-warn-dismissed') === '1') {
-    const banner = document.getElementById('idb-warning-banner');
-    if (banner) banner.style.display = 'none';
+  // Build a full title string that includes subtitle for series parsing
+  const fullTitle = info.subtitle
+    ? `${info.title || ''}: ${info.subtitle}`
+    : (info.title || '');
+
+  const series = extractSeries(fullTitle, info.description, info.subtitle);
+  const seriesNumber = extractSeriesNumber(fullTitle);
+
+  return {
+    googleId: item.id || '',
+    title: info.title || 'Unknown Title',
+    author: (info.authors || ['Unknown Author']).join(', '),
+    series,
+    seriesNumber,
+    coverUrl: cover,
+    publishedDate: info.publishedDate || '',
+    description: info.description || '',
+    pageCount: info.pageCount || 0,
+    categories: (info.categories || []).join(', '),
+    status: 'owned'
+  };
+}
+
+// ── GET BEST AVAILABLE COVER ──
+function getBestCover(imageLinks) {
+  if (!imageLinks) return '';
+  const best =
+    imageLinks.extraLarge ||
+    imageLinks.large ||
+    imageLinks.medium ||
+    imageLinks.thumbnail ||
+    imageLinks.smallThumbnail || '';
+  // Force HTTPS and zoom for larger image
+  return best
+    .replace('http://', 'https://')
+    .replace('&zoom=1', '&zoom=2')
+    .replace('zoom=1', 'zoom=2');
+}
+
+// ── EXTRACT SERIES NAME FROM TITLE/SUBTITLE/DESCRIPTION ──
+// Handles publisher variations:
+//   "Title (Series Name, #2)"          — parenthesized with comma
+//   "Title (Series Name #2)"           — parenthesized with hash
+//   "Title: A Series Name Novel"       — subtitle "A X Novel/Book"
+//   "Title: Series Name, Book 2"       — subtitle with Book N
+//   description fallback: "part of the X series"
+function extractSeries(title, description, subtitle) {
+  if (!title) return '';
+
+  // Pattern 1: (Series Name, #N) or (Series Name #N) — most common
+  let m = title.match(/\(([^,#)]+)[,#]/);
+  if (m) return m[1].trim();
+
+  // Pattern 2: subtitle contains "Series Name, Book N" or "Series Name Book N"
+  if (subtitle) {
+    let s = subtitle.match(/^(.+?),?\s+[Bb]ook\s+\d/);
+    if (s) return s[1].trim();
+    // subtitle is "A X Novel" or "An X Novel"
+    s = subtitle.match(/^[Aa]n?\s+(.+?)\s+[Nn]ovel$/);
+    if (s) return s[1].trim();
   }
 
-  await openLocalDB();
-  pruneOldLogs();
-  await initAuth();
+  // Pattern 3: title itself ends with ", Book N" after a dash or colon
+  let s = title.match(/[:\-]\s*(.+?),?\s+[Bb]ook\s+\d/);
+  if (s) return s[1].trim();
+
+  // Pattern 4: description says "part of the X series" or "book N in the X series"
+  if (description) {
+    let d = description.match(/(?:part of|book \d+ (?:in|of)) the (.+?) series/i);
+    if (d) return d[1].trim();
+  }
+
+  return '';
+}
+
+// ── EXTRACT SERIES NUMBER FROM TITLE ──
+function extractSeriesNumber(title) {
+  if (!title) return '';
+  const match = title.match(/#(\d+\.?\d*)/);
+  if (match) return match[1];
+  const bookMatch = title.match(/Book\s+(\d+)/i);
+  return bookMatch ? bookMatch[1] : '';
+}
+
+// ── FETCH COVER URL FOR A SPECIFIC BOOK ──
+async function fetchCoverUrl(title, author) {
+  try {
+    // Try title + author first
+    let url = `${GOOGLE_BOOKS_BASE}/volumes?q=intitle:"${encodeURIComponent(title)}"+inauthor:"${encodeURIComponent(author)}"&maxResults=1&key=${GOOGLE_BOOKS_API_KEY}`;
+    let response = await fetch(url);
+    let data = await response.json();
+
+    // Fall back to title only if no results
+    if (!data.items || !data.items[0]) {
+      url = `${GOOGLE_BOOKS_BASE}/volumes?q=intitle:"${encodeURIComponent(title)}"&maxResults=1&key=${GOOGLE_BOOKS_API_KEY}`;
+      response = await fetch(url);
+      data = await response.json();
+    }
+
+    if (!data.items || !data.items[0]) return '';
+    const info = data.items[0].volumeInfo || {};
+    return getBestCover(info.imageLinks);
+  } catch (err) {
+    return '';
+  }
+}
+
+// ── BATCH FETCH COVERS FOR MULTIPLE BOOKS ──
+// Fetches covers for up to N books that are missing cover art
+async function batchFetchCovers(maxBooks = 50) {
+  const allBooks = await getAllBooks();
+  const missing = allBooks.filter(b => !b.coverUrl && b.title);
+  const toFetch = missing.slice(0, maxBooks);
+
+  if (toFetch.length === 0) {
+    showToast('All books already have covers!', 'success');
+    return;
+  }
+
+  const btn = document.getElementById('fetchCoversBtn');
+  const originalLabel = btn ? btn.innerHTML : '';
+  let fetched = 0;
+  const total = toFetch.length;
+
+  function updateProgress(current) {
+    if (btn) btn.innerHTML = `🖼️ Fetching cover ${current} of ${total}…`;
+    showToast(`Fetching cover ${current} of ${total}…`, 'info');
+  }
+
+  updateProgress(1);
+
+  for (let i = 0; i < toFetch.length; i++) {
+    const book = toFetch[i];
+    updateProgress(i + 1);
+    const coverUrl = await fetchCoverUrl(book.title, book.author);
+    if (coverUrl) {
+      book.coverUrl = coverUrl;
+      await upsertBook(book);
+      fetched++;
+    }
+  }
+
+  if (btn) btn.innerHTML = originalLabel;
+  saveLog(`Batch cover fetch: ${fetched} covers found out of ${total} books`);
+  showToast(`Found covers for ${fetched} of ${total} books!`, 'success');
   renderLibrary();
-  console.log('✅ SageEchoes running!');
-});
+}
