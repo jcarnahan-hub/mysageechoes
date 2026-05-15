@@ -436,6 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   await openLocalDB();
   pruneOldLogs();
+  await fixMalformedSeriesNames(); // one-time cleanup of "-3)" style series names
   await initAuth();
   renderLibrary();
   console.log('✅ SageEchoes running!');
