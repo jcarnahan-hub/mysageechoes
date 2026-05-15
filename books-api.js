@@ -79,14 +79,16 @@ function getBestCover(imageLinks) {
 // Handles publisher variations:
 //   "Title (Series Name, #2)"          — parenthesized with comma
 //   "Title (Series Name #2)"           — parenthesized with hash
+//   "Title (Series Name-2)"            — parenthesized with hyphen-number
 //   "Title: A Series Name Novel"       — subtitle "A X Novel/Book"
 //   "Title: Series Name, Book 2"       — subtitle with Book N
 //   description fallback: "part of the X series"
 function extractSeries(title, description, subtitle) {
   if (!title) return '';
 
-  // Pattern 1: (Series Name, #N) or (Series Name #N) — most common
-  let m = title.match(/\(([^,#)]+)[,#]/);
+  // Pattern 1: (Series Name, #N) or (Series Name #N) or (Series Name-N) — most common
+  // Captures everything up to the first comma, #, or hyphen-followed-by-digits
+  let m = title.match(/\(([^,#)]+?)(?:\s*[,#]|\s*-\s*\d)/);
   if (m) return m[1].trim();
 
   // Pattern 2: subtitle contains "Series Name, Book N" or "Series Name Book N"
