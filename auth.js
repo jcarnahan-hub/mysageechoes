@@ -2,6 +2,10 @@
 
 let currentUser = null;
 
+// Resolves once Firebase auth state is known (signed in or not)
+let _authReadyResolve;
+const authReady = new Promise(resolve => { _authReadyResolve = resolve; });
+
 function getCurrentUser() {
   return currentUser;
 }
@@ -10,6 +14,7 @@ function initAuth() {
   return new Promise((resolve) => {
     auth.onAuthStateChanged((user) => {
       currentUser = user;
+      _authReadyResolve(user); // signal auth state is known
       if (user) {
         hideSignInScreen();
         updateUserBadge(user);
@@ -35,7 +40,7 @@ function showSignInScreen() {
       font-family: var(--font-body);
     `;
     screen.innerHTML = `
-      <img src="icon_sageechoes.png" style="width:80px;border-radius:18px;">
+      <img src="info_sageechoes.png" style="width:80px;border-radius:18px;">
       <h1 style="font-family:var(--font-heading);color:var(--accent-gold);
         font-size:1.8rem;font-weight:600;margin:0;">SageEchoes</h1>
       <p style="color:var(--text-secondary);margin:0;text-align:center;max-width:280px;">
