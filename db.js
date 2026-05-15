@@ -173,3 +173,45 @@ function pruneOldLogs() {
     }
   };
 }
+
+// ── ONE-TIME SERIES NAME CLEANUP ──
+// Fixes malformed series names already stored in IndexedDB.
+// Audible CSV exports series as "Five Island Cove-3)" — the number and
+// closing paren get stored verbatim. This strips them out in place.
+// Runs once per device; skips if already done (tracked in localStorage).
+async function fixMalformedSeriesNames() {
+  const DONE_KEY = 'ae-series-cleanup-v1';
+  if (localStorage.getItem(DONE_KEY)) return;
+
+  const books = await getAllBooks();
+  let fixed = 0;
+
+  for (const book of books) {
+    if (!book.series) continue;
+    const cleaned = book.series
+      .replace(/\s*-\s*\d+(\.\d+)?\s*\)?\s*$/g, '')   // "-3)" or "-3" at end
+      .replace(/\s*,?\s*#?\d+(\.\d+)?\s*$/g, '')        // "#2" or ",2" at end
+      .replace(/\s*[\(\[]?book\s*\d+[\)\]]?\s*$/gi, '') // "book 2" at end
+      .replace(/\s*\)\s*$/, '')                          // stray trailing ")"
+      .trim();
+
+    if (cleaned !== book.series) {
+      book.series = cleaned;
+      // Also fix the seriesKey to match
+      book.seriesKey = cleaned
+        .replace(/^the\s+/i, '')
+        .replace(/^an?\s+/i, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+      await upsertBook(book);
+      fixed++;
+    }
+  }
+
+  localStorage.setItem(DONE_KEY, '1');
+  if (fixed > 0) {
+    console.log(`✅ Series cleanup: fixed ${fixed} books`);
+    saveLog(`Series name cleanup: fixed ${fixed} books with malformed series names`);
+  }
+}
