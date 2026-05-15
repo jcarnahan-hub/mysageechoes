@@ -4,6 +4,7 @@ const CLOUD_LAST_SYNC_KEY = 'ae-last-cloud-sync';
 
 // ── SAVE TO CLOUD ──
 async function cloudSave(books) {
+  await authReady; // wait for Firebase to confirm auth state
   const user = getCurrentUser();
   if (!user) {
     console.warn('Cloud save skipped — no user signed in');
@@ -31,6 +32,7 @@ async function cloudSave(books) {
 
 // ── RESTORE FROM CLOUD ──
 async function cloudRestore() {
+  await authReady; // wait for Firebase to confirm auth state
   const user = getCurrentUser();
   if (!user) {
     backupToast('Sign in to restore from cloud.', 'warning');
@@ -106,15 +108,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('cloudSaveBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('cloudSaveBtn');
-    btn.textContent = '☁️ Saving...';
+    btn.textContent = '☁️ Checking sign-in...';
     btn.disabled = true;
+    await authReady;
+    if (!getCurrentUser()) {
+      backupToast('Please sign in to use cloud sync.', 'warning');
+      btn.textContent = '☁️ Save to Cloud Now';
+      btn.disabled = false;
+      return;
+    }
+    btn.textContent = '☁️ Saving...';
     const books = await backupGetAllBooks();
     const success = await cloudSave(books);
     if (success) {
       backupToast(`${books.length} books saved to cloud!`, 'success');
       if (typeof saveLog === 'function') saveLog(`Cloud save: ${books.length} books`);
     } else {
-      backupToast('Cloud save failed. Are you signed in?', 'error');
+      backupToast('Cloud save failed. Check your connection and try again.', 'error');
     }
     btn.textContent = '☁️ Save to Cloud Now';
     btn.disabled = false;
