@@ -221,13 +221,16 @@ function normalizeSeriesKey(name) {
 }
 
 // ── CLEAN SERIES NAME ──
-// Removes "book 2", "(book 2)", "series book 2" suffixes
+// Removes "book 2", "(book 2)", "-3)", "-3" suffixes from Audible CSV series field
+// Audible often exports series as "Five Island Cove-3)" or "A Mage's Influence-4)"
 function cleanSeriesName(raw) {
   if (!raw) return '';
   return raw
-    .replace(/\s*[\(\[]?book\s*\d+[\)\]]?\s*/gi, '')
-    .replace(/\s*,?\s*#?\d+(\.\d+)?\s*$/gi, '')
-    .replace(/\s*[\(\[]\s*[\)\]]\s*/g, '')
+    .replace(/\s*[\(\[]?book\s*\d+[\)\]]?\s*/gi, '')  // "book 2", "(book 2)"
+    .replace(/\s*-\s*\d+(\.\d+)?\s*\)?\s*$/g, '')     // "-3)" or "-3" at end (Audible format)
+    .replace(/\s*,?\s*#?\d+(\.\d+)?\s*$/gi, '')        // "#2" or ",2" at end
+    .replace(/\s*[\(\[]\s*[\)\]]\s*/g, '')              // empty parens "()"
+    .replace(/\s*\)\s*$/, '')                           // stray trailing ")"
     .trim();
 }
 
